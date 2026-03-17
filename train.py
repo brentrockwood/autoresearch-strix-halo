@@ -7,6 +7,8 @@ Usage: uv run train.py
 import os
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+# Rockwood Lab (ROCm): enable experimental Triton/AOTriton kernels on gfx1151
+os.environ.setdefault("TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL", "1")
 
 import gc
 import math
@@ -17,11 +19,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from kernels import get_kernel
-cap = torch.cuda.get_device_capability()
-# varunneal's FA3 is Hopper only, use kernels-community on non-Hopper GPUs
-repo = "varunneal/flash-attention-3" if cap == (9, 0) else "kernels-community/flash-attn3"
-fa3 = get_kernel(repo).flash_attn_interface
+# Rockwood Lab (ROCm/Strix Halo): FA3 not available on gfx1151.
+# Using torch SDPA instead. FA3 path retained in comments for reference.
+# Original: from kernels import get_kernel; fa3 = get_kernel(...).flash_attn_interface
 
 from prepare import MAX_SEQ_LEN, TIME_BUDGET, Tokenizer, make_dataloader, evaluate_bpb
 
@@ -90,8 +90,13 @@ class CausalSelfAttention(nn.Module):
         q, k = apply_rotary_emb(q, cos, sin), apply_rotary_emb(k, cos, sin)
         q, k = norm(q), norm(k)
 
-        y = fa3.flash_attn_func(q, k, v, causal=True, window_size=window_size)
-        y = y.contiguous().view(B, T, -1)
+        # Rockwood Lab (ROCm): SDPA replaces FA3. window_size ignored (WINDOW_PATTERN="L").
+        # q/k/v are (B, T, n_head, head_dim) — SDPA expects (B, n_head, T, head_dim)
+        q_sdpa = q.transpose(1, 2)
+        k_sdpa = k.transpose(1, 2)
+        v_sdpa = v.transpose(1, 2)
+        y = F.scaled_dot_product_attention(q_sdpa, k_sdpa, v_sdpa, is_causal=True)
+        y = y.transpose(1, 2).contiguous().view(B, T, -1)
         y = self.c_proj(y)
         return y
 
@@ -429,13 +434,21 @@ class MuonAdamW(torch.optim.Optimizer):
 # Hyperparameters (edit these directly, no CLI flags needed)
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# ↓↓↓ THE ONE KNOB — tune this, everything else follows ↓↓↓
+DEVICE_BATCH_SIZE = 8   # sequences per forward pass — double until tok/sec stops rising or OOM
+# ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+# ---------------------------------------------------------------------------
+
 # Model architecture
 ASPECT_RATIO = 64       # model_dim = depth * ASPECT_RATIO
 HEAD_DIM = 128          # target head dimension for attention
-WINDOW_PATTERN = "SSSL" # sliding window pattern: L=full, S=half context
+WINDOW_PATTERN = "L"    # Rockwood Lab (ROCm): full attention only — banded attn unsupported on gfx1151
 
 # Optimization
-TOTAL_BATCH_SIZE = 2**19 # ~524K tokens per optimizer step
+# Rockwood Lab (ROCm): TOTAL_BATCH_SIZE derived from DEVICE_BATCH_SIZE — change one number, nothing breaks
+# MAX_SEQ_LEN = 2048 (from prepare.py)
+TOTAL_BATCH_SIZE = DEVICE_BATCH_SIZE * 2048
 EMBEDDING_LR = 0.6      # learning rate for token embeddings (Adam)
 UNEMBEDDING_LR = 0.004  # learning rate for lm_head (Adam)
 MATRIX_LR = 0.04        # learning rate for matrix parameters (Muon)
@@ -446,9 +459,8 @@ WARMUP_RATIO = 0.0      # fraction of time budget for LR warmup
 WARMDOWN_RATIO = 0.5    # fraction of time budget for LR warmdown
 FINAL_LR_FRAC = 0.0     # final LR as fraction of initial
 
-# Model size
-DEPTH = 8               # number of transformer layers
-DEVICE_BATCH_SIZE = 128  # per-device batch size (reduce if OOM)
+# Rockwood Lab (ROCm): reduced from 8 — more steps per 5min beats bigger model
+DEPTH = 4
 
 # ---------------------------------------------------------------------------
 # Setup: tokenizer, model, optimizer, dataloader
@@ -460,7 +472,9 @@ torch.cuda.manual_seed(42)
 torch.set_float32_matmul_precision("high")
 device = torch.device("cuda")
 autocast_ctx = torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16)
-H100_BF16_PEAK_FLOPS = 989.5e12
+# Rockwood Lab (ROCm): no H100 peak FLOPS reference — MFU% will be relative to this placeholder.
+# Replace with actual gfx1151 bf16 peak when known. ~100 TFLOPS is a rough estimate.
+H100_BF16_PEAK_FLOPS = 100e12
 
 tokenizer = Tokenizer.from_directory()
 vocab_size = tokenizer.get_vocab_size()

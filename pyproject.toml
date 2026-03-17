@@ -1,10 +1,9 @@
 [project]
 name = "autoresearch"
 version = "0.1.0"
-description = "Autonomous pretraining research swarm"
-readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "torch==2.9.1",
     "kernels>=0.11.7",
     "matplotlib>=3.10.8",
     "numpy>=2.2.6",
@@ -13,15 +12,74 @@ dependencies = [
     "requests>=2.32.0",
     "rustbpe>=0.1.0",
     "tiktoken>=0.11.0",
-    "torch==2.9.1",
 ]
 
-[tool.uv.sources]
-torch = [
-    { index = "pytorch-cu128" },
+[project.optional-dependencies]
+cpu = [
+    "torch>=2.9.1",
 ]
+gpu = [
+    "torch>=2.9.1",
+]
+# Rockwood Lab: AMD Strix Halo (gfx1151) via ROCm
+# Reference: https://github.com/karpathy/nanochat/discussions/363 (khimaros patch)
+rocm-gfx1151 = [
+    "torch>=2.9.1,<2.10.0",
+    "torchvision",
+    "rocm",
+    "pytorch-triton-rocm",
+    "rocm-sdk-core",
+    "rocm-sdk-libraries-gfx1151",
+]
+
+[tool.uv]
+# autoresearch is a scripts-only project, not an installable package
+package = false
+prerelease = "allow"
+conflicts = [
+    [
+        { extra = "cpu" },
+        { extra = "gpu" },
+        { extra = "rocm-gfx1151" },
+    ],
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
 explicit = true
+
+# Rockwood Lab: ROCm wheel index for gfx1151 (Strix Halo)
+# Fallback if this is down: https://rocm.nightlies.amd.com/v2-staging/gfx1151
+[[tool.uv.index]]
+name = "pytorch-rocm-gfx1151"
+url = "https://repo.amd.com/rocm/whl/gfx1151"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu128", extra = "gpu" },
+    { index = "pytorch-rocm-gfx1151", extra = "rocm-gfx1151" },
+]
+rocm = [
+    { index = "pytorch-rocm-gfx1151", extra = "rocm-gfx1151" },
+]
+pytorch-triton-rocm = [
+    { index = "pytorch-rocm-gfx1151", extra = "rocm-gfx1151" },
+]
+rocm-sdk-core = [
+    { index = "pytorch-rocm-gfx1151", extra = "rocm-gfx1151" },
+]
+rocm-sdk-libraries-gfx1151 = [
+    { index = "pytorch-rocm-gfx1151" },
+]
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
