@@ -1,0 +1,123 @@
+commit	val_bpb	memory_gb	status	description
+13d579c	1.240629	1.1	keep	baseline: DEPTH=4 ASPECT_RATIO=64 model_dim=256
+04996a5	1.251186	1.9	discard	ASPECT_RATIO=128 model_dim=512: bigger model=fewer steps=worse
+96e0c4e	1.241505	1.1	discard	HEAD_DIM=64 (4 heads vs 2): more steps but marginally worse
+1ecbe53	1.258411	1.1	discard	MATRIX_LR=0.06: higher Muon LR made it worse
+e20a046	1.249517	1.0	discard	DEPTH=3: more steps (4360) but less capacity=worse
+1db8450	1.270053	1.1	discard	no value embeddings: simpler but significantly worse
+1b86798	1.237913	1.1	keep	WARMDOWN_RATIO=0.7: longer cooldown improves convergence
+f560fab	1.235995	1.1	keep	WARMDOWN_RATIO=0.8: even longer cooldown even better
+70c3065	1.235108	1.1	keep	WARMDOWN_RATIO=0.9: still improving
+cd4a72a	1.234214	1.1	keep	WARMDOWN_RATIO=0.95: still improving
+8788beb	1.233838	1.1	keep	WARMDOWN_RATIO=0.98: still improving (diminishing)
+b3e1ac5	1.233979	1.1	discard	WARMDOWN_RATIO=1.0: slightly worse, 0.98 is the sweet spot
+ce09cdd	1.233340	1.1	keep	WARMUP_RATIO=0.02 + WARMDOWN_RATIO=0.98: tiny warmup helps
+b9449f6	1.234032	1.1	discard	WARMUP_RATIO=0.05: too much warmup, worse than 0.02
+a0b945e	1.238021	1.1	discard	FINAL_LR_FRAC=0.1: residual LR hurts convergence
+6c24e44	1.238076	1.1	discard	cosine warmdown: smoother but worse than linear
+1529aac	1.234267	1.1	discard	ADAM_BETAS beta1=0.9: more smoothing but worse
+0e22396	1.247057	1.1	discard	GeLU activation: much worse than ReLU²
+7101a95	2.945631	1.1	discard	weight tying: LR mismatch (embedding_lr vs lm_head_lr) breaks training
+0bfb261	1.234936	1.2	discard	VE all layers: more params=fewer steps=worse
+85d04e6	1.230564	1.1	keep	MATRIX_LR=0.03: lower Muon LR improves convergence
+7a9a7d3	1.225756	1.1	keep	MATRIX_LR=0.02: even lower still improving
+b2bf272	1.230376	1.1	discard	MATRIX_LR=0.015: too low, 0.02 is optimal
+01c0add	1.229512	1.1	discard	EMBEDDING_LR=0.4: lower embedding LR worse
+96e7c04	1.227992	1.1	discard	EMBEDDING_LR=0.8: higher embedding LR also worse
+9105688	1.233550	1.1	discard	UNEMBEDDING_LR=0.002: lower lm_head LR worse
+57eeffd	1.231932	1.1	discard	UNEMBEDDING_LR=0.008: higher lm_head LR also worse
+1f31d84	1.226065	1.1	discard	WEIGHT_DECAY=0.1: marginal diff (noise-level), 0.2 wins
+5870947	1.232645	1.1	discard	WEIGHT_DECAY=0.0: no regularization is worse
+1c7aa27	1.232446	1.1	discard	MLP 4x->3x: more steps but less capacity=worse
+e73f102	1.229343	1.1	discard	ns_steps=3: faster but worse orthogonalization
+cd7ae0d	1.232518	1.1	discard	remove ve_gate direct VE addition: gate is useful
+3447f41	1.229457	1.1	discard	gradient clipping max_norm=1.0: slightly worse
+e611c7c	1.231992	1.1	discard	Muon momentum fixed 0.95 no warmup: warmup important
+4edaabf	1.249054	0.7	discard	DEVICE_BATCH_SIZE=4: too noisy, much worse
+66a2195	1.228711	2.0	discard	DEVICE_BATCH_SIZE=16: too few steps (1820), worse
+cc0fd62	1.229945	1.1	discard	MATRIX_LR=0.025: 0.02 is the true optimum
+4cdeda6	1.223361	1.1	keep	ADAM_BETAS beta2=0.99: more stable variance improves
+72362cd	1.229838	1.1	discard	ADAM_BETAS beta2=0.999: too stable, 0.99 is optimal
+59137e6	1.225380	1.1	discard	ADAM_BETAS beta1=0.85: 0.8 is still optimal
+0034c08	1.224006	1.1	discard	Muon beta2=0.99: slightly worse (0.95 is optimal)
+0c70998	1.224697	1.1	discard	Muon momentum warmup 100 steps: 300 is better
+5fe4171	1.223462	1.1	discard	Muon momentum warmup 500 steps: slightly worse than 300
+435b4e8	1.228649	1.1	discard	softcap 15->30: wider cap hurts
+2685a92	1.228802	1.1	discard	SwiGLU activation: slower+worse than ReLU²
+649fc33	1.225858	1.3	discard	DEPTH=5 ASPECT_RATIO=30 model_dim=256: fewer steps worse
+32d9958	1.225951	1.1	discard	Muon peak momentum 0.97: 0.95 is still optimal
+1a2d5eb	1.229305	1.1	discard	remove logit softcap: softcap=15 is useful
+15efa69	1.227785	1.1	discard	constant weight decay: scheduled decay to 0 is better
+30f98b8	1.542106	1.6	discard	label smoothing 0.1: catastrophically worse
+baa1802	1.222952	1.2	keep	MLP 4x->5x: more capacity improves even with fewer steps
+60c908c	1.223101	1.3	discard	MLP 5x->6x: diminishing returns, 5x is sweet spot
+e6250be	1.219909	1.2	keep	softcap 15->10: tighter logit cap significantly improves
+2684013	1.222602	1.2	discard	softcap 10->8: too tight, 10 is optimal
+ea5a818	1.248064	1.2	discard	parallel attn+MLP (PaLM-style): significantly worse
+1d76dc4	1.220404	1.2	discard	MATRIX_LR 0.02->0.018: 0.02 still optimal
+0bfcb76	1.220666	1.2	discard	MATRIX_LR 0.02->0.022: 0.02 confirmed optimal
+82b186d	1.220950	1.2	discard	ve_gate_channels 32->64: more expressive but worse
+e05236f	1.222088	1.2	discard	WARMUP=0.01 WARMDOWN=0.99: current settings optimal
+bae90a1	1.218885	1.2	keep	ADAM_BETAS beta2=0.98: slightly less stable variance better
+f30780b	1.219544	1.2	discard	ADAM_BETAS beta2=0.97: 0.98 is sweet spot
+44e8462	1.219908	1.2	discard	EMBEDDING_LR 0.6->0.5: 0.6 still optimal
+e188200	1.218875	1.2	keep	WEIGHT_DECAY 0.2->0.15: marginal improvement
+3f9a785	1.219248	1.2	discard	WEIGHT_DECAY 0.1: too low, 0.15 wins
+0f780f1	1.220089	1.2	discard	RoPE base 10000->50000: slower freq decay worse
+f9f8506	1.220461	1.2	discard	Muon start momentum 0.85->0.80: 0.85 is optimal
+43b96c7	1.221440	1.3	discard	VE all 4 layers: more params worse
+4b8f8ed	1.219168	1.2	discard	WARMUP=0.01 WARMDOWN=0.99: current schedule optimal
+9a9b23d	1.225623	1.2	discard	power-law warmdown exponent 1.5: linear is best
+6454387	1.218744	1.2	keep	x0_lambdas init 0.0: start clean marginally better
+1b234c3	1.220186	1.2	discard	remove resid_lambdas: they contribute positively
+be7eb68	1.218328	1.2	keep	Adam eps 1e-10->1e-8: standard eps better
+bd7fc56	1.223602	1.2	discard	Adam eps 1e-8->1e-6: too large, 1e-8 is optimal
+4d29ba1	1.222633	1.2	discard	SCALAR_LR 0.5->1.0: too fast, 0.5 optimal
+96e7271	1.224532	1.2	discard	VE last layer only: both VE layers needed
+9a12994	1.219481	1.2	discard	ADAM_BETAS beta1 0.75: 0.8 optimal
+2e85c6c	1.224393	1.2	discard	HEAD_DIM 64 (4 heads): 2 heads still better
+9c4904a	1.219393	1.2	discard	UNEMBEDDING_LR 0.005: 0.004 still optimal
+54aae15	1.218380	1.2	discard	EMBEDDING_LR 0.7: 0.6 still optimal
+f652cbf	1.229808	1.2	discard	RoPE base 1000: too fast rotations, 10000 optimal
+4367140	1.218185	1.2	keep	Muon NorMuon beta2 0.95->0.9: faster variance slightly better
+60304c2	1.218074	1.2	keep	Muon NorMuon beta2 0.9->0.85: continued improvement
+c880d7e	1.218518	1.2	discard	Muon NorMuon beta2 0.85->0.8: 0.85 is optimal
+02c2c65	1.222565	1.1	discard	VE gate full n_embd input (256 dims vs 32): worse, fewer dims better
+8dc8c31	1.222594	1.1	discard	Muon momentum warmup 300->200 steps: faster but worse, 300 optimal
+9a1dc29	1.224976	1.1	discard	SCALAR_LR 0.5->0.3: too slow, 0.5 is optimal
+d43185f	1.225899	1.1	discard	RoPE base 10000->5000: faster rotations worse, 10000 optimal
+41ea7fc	1.225108	1.1	discard	Muon ns_steps 5->4: slightly faster but worse orthogonalization
+07f4c71	1.228483	1.1	discard	VE on even layers (0,2) vs odd (1,3): including last layer is key
+2ffc250	1.223845	1.1	discard	x0_lambdas standard adam_betas: unusual (0.96,0.95) betas are better
+7f9ceb7	1.225859	1.1	discard	resid_lambdas init 1.0->0.9: starting at 1.0 is better
+6aebb74	1.224719	1.1	discard	WEIGHT_DECAY 0.15->0.12: 0.15 remains optimal
+2c8038c	1.224233	1.2	discard	per-block attn_scale+mlp_scale: extra params cost steps, worse
+356d3ec	1.230446	1.1	discard	MLP-first block order: attention-first is better
+29fe8c5	1.232862	1.1	discard	remove initial embedding norm: norm after wte is needed
+6f90656	1.226858	1.1	discard	normalize VE before gate-mixing: raw VE is better
+e88edcf	1.224694	1.1	discard	MLP 5x->5.25x (1344 hidden): 5x is confirmed sweet spot
+c4b71a5	1.222745	1.3	discard	Z-loss 1e-4: extra memory and worse convergence
+bf7dcdf	1.223944	1.1	discard	GPT-2 scaled init for output projections: zero-init is better
+09f560e	1.245314	1.0	discard	remove QK norm: critically important for training stability
+23e34b7	1.222345	1.1	discard	softcap 10->9: slightly worse, 10 remains optimal
+db78409	1.342688	1.1	discard	EMA decay=0.999 (bfloat16 lerp bug - EMA frozen at init)
+c707517	1.241793	1.1	discard	EMA decay=0.999 float32 fix: warmdown already optimal, EMA dilutes
+6e0a32b	1.228822	1.1	discard	Lookahead k=10 alpha=0.5: conflicts with warmdown schedule, worse
+05e7e36	1.228822	1.1	discard	weight tying layers 0&2 1&3: slower step time (147ms vs 89ms), GPU fault
+0a9f4fe	1.671800	1.1	discard	learned QK norm scales: catastrophic (LR 0.866 too high for scale params)
+0594941	1.539035	1.1	discard	SDPA scale=1/head_dim: very soft attention catastrophically bad
+ce6fe12	1.268724	1.1	discard	RoPE on V: disrupts content-based value retrieval, worse
+550483e	1.223452	1.2	discard	VE gate learned proj: extra params add overhead, raw 32 dims better
+070bf53	1.224301	1.1	discard	2-hop skip x2_lambdas: marginally worse, not useful
+3389ed6	1.279029	2.0	discard	MQA n_kv_head=1: significantly worse, 2 Q heads need separate KV
+c4739ec	1.224259	1.1	discard	HEAD_DIM=64 (4 heads x 64-dim): worse than 2x128, result holds with current settings
+3e99421	1.528429	5.3	discard	DiffAttn: catastrophically slow on ROCm (4.4x slower, 2 SDPA calls penalty)
+50fb092	1.224661	1.3	discard	DEPTH=5 ASPECT_RATIO=50 model_dim=256 retry: still worse, DEPTH=4 remains optimal
+bd8569b	1.226493	1.1	discard	learned per-dim RMSNorm scales (gamma): worse despite being standard in LLaMA/Gemma
+df3239f	1.249323	1.1	discard	WINDOW_PATTERN=SSSL via manual SDPA mask: worse, full attn in all layers is better
+4b3f68b	1.225789	1.1	discard	VE direct to MLP input via zero-init learned scale: worse, VE useful only in attention
+bb2682d	1.228887	1.1	discard	V-norm: full QKV normalization worse (V is content, norm removes magnitude)
+f73444e	1.224736	1.1	discard	Muon momentum warmdown 0.95->0.85 during cooldown: worse
+d8d1656	1.222853	1.1	discard	VE_LR=0.3 (half of EMBEDDING_LR): worse, shared LR is better
+bf763e5	1.224437	1.1	discard	NorMuon beta2 0.85->0.83: worse, 0.85 is the true optimum
+5025e89	1.227524	0.9	discard	DEVICE_BATCH_SIZE=6: 4422 steps but smaller batch hurts quality, BS=8 optimal
