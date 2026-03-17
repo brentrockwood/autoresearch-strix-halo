@@ -2,17 +2,55 @@
 
 This is an experiment to have the LLM do its own research.
 
+## Platform Note for Agent — AMD Strix Halo (gfx1151 / ROCm)
+
+This autoresearch instance is running on **AMD Strix Halo (gfx1151)** via ROCm PyTorch,
+not NVIDIA CUDA. The following constraints are **hard** — do not work around them:
+
+- **No Flash Attention.** FA2/FA3 are not available on gfx1151. The codebase uses
+  `F.scaled_dot_product_attention` (SDPA). Do not attempt to import or use `flash_attn`
+  or `kernels`. SDPA is correct and already in place.
+
+- **`WINDOW_PATTERN` must stay `"L"`.** Banded/sliding window attention (`"S"` patterns)
+  is not supported on this platform. Do not change `WINDOW_PATTERN`.
+
+- **Unified memory.** This GPU shares memory with the CPU — the "VRAM" pool is large
+  (~96GB usable for GPU) but bandwidth-limited compared to HBM. Larger batches are
+  possible but slower. More optimizer steps per 5-minute window beats larger models.
+
+- **`kernels` package is present but GPU kernels won't load.** Do not use `get_kernel()`.
+
+- **`uv run` is not used.** Training is invoked as `.venv/bin/python train.py`. Do not
+  change the invocation method.
+
+### What to experiment with
+
+Given the throughput profile of this hardware, experiments most likely to win:
+
+- **Smaller models, more steps** — `DEPTH = 4` is the baseline. Try 3, but not larger.
+- **Batch size tuning** — `DEVICE_BATCH_SIZE` and `TOTAL_BATCH_SIZE` directly control
+  steps/minute. Try doubling `DEVICE_BATCH_SIZE` (16, 32) if memory allows.
+- **Learning rate schedules** — warmup, warmdown ratios, `MATRIX_LR`, `ADAM_BETAS`.
+- **Optimizer** — Muon is running. AdamW-only is a valid experiment.
+- **Architecture within SDPA** — head count, KV head count, embedding dim, MLP ratio.
+- **Initialization** — weight init strategies are fair game.
+
+### Metric
+
+`val_bpb` — lower is better. This is bits per byte on the validation shard.
+Baseline from first run: val_bpb = 1.240834 (depth=4, DEVICE_BATCH_SIZE=8, TOTAL_BATCH_SIZE=2**14, 3568 steps, 58.5M tokens)
+
 ## Setup
 
 To set up a new experiment, work with the user to:
 
-1. **Agree on a run tag**: propose a tag based on today's date (e.g. `mar5`). The branch `autoresearch/<tag>` must not already exist — this is a fresh run.
-2. **Create the branch**: `git checkout -b autoresearch/<tag>` from current master.
+1. **Agree on a run tag**: propose a tag based on today's date (e.g. `mar16-strix-halo`). The branch `<repo_name>/<tag>` must not already exist — this is a fresh run.
+2. **Create the branch**: `git checkout -b <repo_name>/<tag>` from current master.
 3. **Read the in-scope files**: The repo is small. Read these files for full context:
    - `README.md` — repository context.
    - `prepare.py` — fixed constants, data prep, tokenizer, dataloader, evaluation. Do not modify.
    - `train.py` — the file you modify. Model architecture, optimizer, training loop.
-4. **Verify data exists**: Check that `~/.cache/autoresearch/` contains data shards and a tokenizer. If not, tell the human to run `uv run prepare.py`.
+4. **Verify data exists**: Check that `~/.cache/autoresearch/` contains data shards and a tokenizer. If not, tell the human to run `TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1 .venv/bin/python prepare.py`.
 5. **Initialize results.tsv**: Create `results.tsv` with just the header row. The baseline will be recorded after the first run.
 6. **Confirm and go**: Confirm setup looks good.
 
@@ -20,7 +58,7 @@ Once you get confirmation, kick off the experimentation.
 
 ## Experimentation
 
-Each experiment runs on a single GPU. The training script runs for a **fixed time budget of 5 minutes** (wall clock training time, excluding startup/compilation). You launch it simply as: `uv run train.py`.
+Each experiment runs on a single GPU. The training script runs for a **fixed time budget of 5 minutes** (wall clock training time, excluding startup/compilation). You launch it simply as: `TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1 .venv/bin/python train.py`.
 
 **What you CAN do:**
 - Modify `train.py` — this is the only file you edit. Everything is fair game: model architecture, optimizer, hyperparameters, training loop, batch size, model size, etc.
@@ -96,7 +134,7 @@ LOOP FOREVER:
 1. Look at the git state: the current branch/commit we're on
 2. Tune `train.py` with an experimental idea by directly hacking the code.
 3. git commit
-4. Run the experiment: `uv run train.py > run.log 2>&1` (redirect everything — do NOT use tee or let output flood your context)
+4. Run the experiment: `TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1 .venv/bin/python train.py > run.log 2>&1` (redirect everything — do NOT use tee or let output flood your context)
 5. Read out the results: `grep "^val_bpb:\|^peak_vram_mb:" run.log`
 6. If the grep output is empty, the run crashed. Run `tail -n 50 run.log` to read the Python stack trace and attempt a fix. If you can't get things to work after more than a few attempts, give up.
 7. Record the results in the tsv (NOTE: do not commit the results.tsv file, leave it untracked by git)
@@ -112,3 +150,4 @@ The idea is that you are a completely autonomous researcher trying things out. I
 **NEVER STOP**: Once the experiment loop has begun (after the initial setup), do NOT pause to ask the human if you should continue. Do NOT ask "should I keep going?" or "is this a good stopping point?". The human might be asleep, or gone from a computer and expects you to continue working *indefinitely* until you are manually stopped. You are autonomous. If you run out of ideas, think harder — read papers referenced in the code, re-read the in-scope files for new angles, try combining previous near-misses, try more radical architectural changes. The loop runs until the human interrupts you, period.
 
 As an example use case, a user might leave you running while they sleep. If each experiment takes you ~5 minutes then you can run approx 12/hour, for a total of about 100 over the duration of the average human sleep. The user then wakes up to experimental results, all completed by you while they slept!
+
